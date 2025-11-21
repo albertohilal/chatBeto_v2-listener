@@ -109,7 +109,7 @@ class ChatBETODatabaseService {
       // SQL con prepared statement para seguridad
       // Ajuste de columnas a la estructura actual de la BD
       // Tabla `messages` usa: id, conversation_id, role, content, content_type, author_name,
-      // parent_message_id, created_at_timestamp_ms, created_at, status
+      // parent_message_id, created_at_ms, created_at, status
       const sql = `
         INSERT INTO messages (
           id,
@@ -119,17 +119,19 @@ class ChatBETODatabaseService {
           content_type,
           author_name,
           parent_message_id,
-          created_at_timestamp_ms,
+          created_at_ms,
           created_at,
           status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(? / 1000), ?)
         ON DUPLICATE KEY UPDATE
           role = VALUES(role),
           content = VALUES(content),
           content_type = VALUES(content_type),
           author_name = VALUES(author_name),
-          updated_at = NOW()
+          status = VALUES(status)
       `;
+
+      const createTimeMs = Math.floor(createTime * 1000);
 
       const params = [
         messageId,
@@ -139,7 +141,8 @@ class ChatBETODatabaseService {
         options.contentType || 'text',
         authorName,
         parentMessageId,
-        createTime * 1000, // guardar en ms en created_at_timestamp_ms
+        createTimeMs,
+        createTimeMs,
         'finished_successfully'
       ];
 
@@ -189,7 +192,7 @@ class ChatBETODatabaseService {
           m.role as message_role,
           m.content as message_content,  -- CONTENIDO REAL del mensaje
           m.created_at as message_created_at,
-          m.created_at_timestamp_ms as message_timestamp,
+          m.created_at_ms as message_timestamp,
           
           -- Datos de la conversación (título, NO contenido)
           c.id as conversation_id,
@@ -248,7 +251,7 @@ class ChatBETODatabaseService {
       // Ordenar por fecha del mensaje (más recientes primero)
       sql += ` 
         ORDER BY 
-          COALESCE(m.created_at_timestamp_ms, UNIX_TIMESTAMP(m.created_at)*1000) DESC,
+          COALESCE(m.created_at_ms, UNIX_TIMESTAMP(m.created_at)*1000) DESC,
           m.created_at DESC
         LIMIT ?
       `;
@@ -330,35 +333,36 @@ class ChatBETODatabaseService {
       const sql = `
         INSERT INTO conversations (
           id,
-          conversation_id, 
+          conversation_id,
           title,           -- TÍTULO de la conversación
-          project_id, 
+          project_id,
           default_model_slug,
-          create_time, 
-          update_time,
+          openai_thread_id,
           created_at,
-          openai_thread_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+          created_at_ms,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, NOW())
         ON DUPLICATE KEY UPDATE
           title = VALUES(title),
           project_id = VALUES(project_id),
           default_model_slug = VALUES(default_model_slug),
-          update_time = VALUES(update_time),
           openai_thread_id = VALUES(openai_thread_id),
           updated_at = NOW()
       `;
 
       const conversationUuid = conversationData.id || uuidv4();
       
+      const createTime = create_time || Date.now() / 1000;
+      const createTimeMs = Math.floor(createTime * 1000);
+
       const params = [
         conversationUuid,
         conversation_id,
         cleanTitle,         // TÍTULO limpio (NO contenido)
         project_id,
         model || 'gpt-4',
-        create_time || Date.now() / 1000,
-        update_time || Date.now() / 1000,
-        openai_thread_id
+        openai_thread_id,
+        createTimeMs
       ];
 
       const [result] = await this.pool.execute(sql, params);
@@ -406,8 +410,8 @@ class ChatBETODatabaseService {
 
   formatMessageDate(createdAt, createTime) {
     try {
-      // createTime may be provided either as seconds (Unix epoch) or milliseconds.
-      // created_at_timestamp_ms in the DB is stored in milliseconds.
+  // createTime may be provided either as seconds (Unix epoch) or milliseconds.
+  // created_at_ms in the DB is stored in milliseconds.
       if (createTime && Number.isFinite(createTime)) {
         // Heuristic: if value looks like milliseconds (>= 1e12), use directly,
         // otherwise treat as seconds and convert to ms.
