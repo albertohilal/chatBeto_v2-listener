@@ -406,8 +406,13 @@ class ChatBETODatabaseService {
 
   formatMessageDate(createdAt, createTime) {
     try {
+      // createTime may be provided either as seconds (Unix epoch) or milliseconds.
+      // created_at_timestamp_ms in the DB is stored in milliseconds.
       if (createTime && Number.isFinite(createTime)) {
-        return new Date(createTime * 1000).toISOString();
+        // Heuristic: if value looks like milliseconds (>= 1e12), use directly,
+        // otherwise treat as seconds and convert to ms.
+        const tsMs = createTime > 1e12 ? createTime : createTime * 1000;
+        return new Date(tsMs).toISOString();
       }
       if (createdAt) {
         return new Date(createdAt).toISOString();
