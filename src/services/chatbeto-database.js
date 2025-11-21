@@ -11,8 +11,8 @@ const { v4: uuidv4 } = require('uuid');
  * 1. Al insertar, el campo "mensaje" almacene el contenido real del chat (NO el título)
  * 2. La consulta del reporte "Buscar Mensajes en Chat" devuelva correctamente:
  *    - título de la conversación (conversation.title)
- *    - rol del emisor del mensaje (message.author_role)
- *    - contenido del mensaje (message.content_text)
+ *    - rol del emisor del mensaje (message.role)
+ *    - contenido del mensaje (message.content)
  *    - fecha/hora del mensaje (message.created_at)
  * 3. Mapeo correcto entre tablas: conversations ↔ messages (uno-a-muchos)
  * 
@@ -172,8 +172,8 @@ class ChatBETODatabaseService {
    * Consulta optimizada para el reporte "Buscar Mensajes en Chat"
    * Devuelve CORRECTAMENTE:
    * - título de la conversación (conversation.title)
-   * - rol del emisor (message.author_role)  
-   * - contenido del mensaje (message.content_text)
+  * - rol del emisor (message.role)  
+  * - contenido del mensaje (message.content)
    * - fecha/hora del mensaje (message.created_at)
    * 
    * @param {number} projectId - ID del proyecto (opcional)
